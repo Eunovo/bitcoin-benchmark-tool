@@ -26,6 +26,7 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser("bench-tool")
   parser.add_argument("datadir")
   parser.add_argument("stopheight")
+  parser.add_argument("output_suffix", help="Suffix will be added to output csv files")
   parser.add_argument("targets", nargs="*")
   parser.add_argument("--args")
 
@@ -42,6 +43,7 @@ if __name__ == "__main__":
   datadir = args.datadir
   targets = args.targets
   numcores = len(os.sched_getaffinity(0))
+  output_suffix = args.output_suffix
   stopheight = int(args.stopheight)
 
   for target in targets:
@@ -52,12 +54,12 @@ if __name__ == "__main__":
     os.system("cmake -B build -DENABLE_WALLET=OFF")
     os.system("cmake --build build -j {0}".format(numcores))
     
-    target_out_dir = "{0}_output.csv".format(target)
+    target_outfile = "{0}_{1}.csv".format(target, output_suffix)
 
     cmd = "build/src/bitcoind -datadir={0} -daemon=0 -networkactive=0 -prune=0 -reindex -stopatheight={1} {2}".format(datadir, stopheight, ' '.join(bitcoin_args))
     print("[BENCH-TOOL] Running: "+cmd)
-    with open(target_out_dir, 'xt') as file:
-      print("[BENCH-TOOL] Writing data to "+target_out_dir)
+    with open(target_outfile, 'xt') as file:
+      print("[BENCH-TOOL] Writing data to "+target_outfile)
       file.write("time_ns,height\n")
       with os.popen(cmd) as output:
         start_time = time.time_ns()
