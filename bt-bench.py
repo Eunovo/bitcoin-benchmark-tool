@@ -59,7 +59,7 @@ if __name__ == "__main__":
   targets = args.targets
   numcores = len(os.sched_getaffinity(0))
   stopheight = int(args.stopheight)
-  print(args)
+
   values = args.i
 
   for target in targets:
