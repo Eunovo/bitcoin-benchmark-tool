@@ -5,20 +5,26 @@ import sys
 import time
 
 def parse_line(line: str):
-  data = line.split(' ')
-
-  if len(data) < 2:
-    return (0, False)
-  
   new_tip = 0
   shutdown = False
-  
-  if data[1] == 'UpdateTip:':
-    height_dat = data[4].split('=')
-    new_tip = int(height_dat[1])
 
-  if data[1] == 'Shutdown:':
-    shutdown = data[2] == 'done'
+  shutdown_msg = 'Shutdown: done'
+  update_tip_msg = 'UpdateTip:'
+
+  if (line[21:21+len(update_tip_msg)] == update_tip_msg):
+    height_dat = []
+    cursor = 113
+    while cursor < len(line):
+      char = line[cursor]
+      height_dat.append(char)
+      if (char == ' '):
+        break
+      cursor += 1
+
+    new_tip = int(''.join(height_dat))
+
+  if (line[21:21+len(shutdown_msg)] == shutdown_msg):
+    shutdown = True
   
   return (new_tip, shutdown)
 
@@ -72,19 +78,23 @@ if __name__ == "__main__":
 
       cmd = "build/src/bitcoind -datadir={0} -daemon=0 -networkactive=0 -prune=0 -reindex -stopatheight={1} {2}".format(datadir, stopheight, ' '.join(parsed_bitcoin_args))
       print("[BENCH-TOOL] Running: "+cmd)
+      data = [(0,0) for i in range(stopheight)] # Reserve space for data
+      with os.popen(cmd) as output:
+        start_time = time.time_ns()
+        count = 0
+        while count < (stopheight * 10): # Use limit to remove the possibility of inifinite loop
+          (new_tip, shutdown) = parse_line(output.readline())
+          duration_ns = time.time_ns() - start_time
+          count += 1
+          if shutdown:
+            break
+          if new_tip > 0:
+            data[new_tip - 1] = (duration_ns, new_tip)
+
       with open(target_outfile, 'xt') as file:
         print("[BENCH-TOOL] Writing data to "+target_outfile)
         file.write("time_ns,height\n")
-        with os.popen(cmd) as output:
-          start_time = time.time_ns()
-          count = 0
-          while count < (stopheight * 10): # Use limit to prevent inifinite loop
-            (new_tip, shutdown) = parse_line(output.readline())
-            duration_ns = time.time_ns() - start_time
-            count += 1
-            if shutdown:
-              break
-            if new_tip > 0:
-              file.write("{0},{1}\n".format(duration_ns, new_tip))
+        for line in data:
+          file.write("{0},{1}\n".format(line[0], line[1]))
   
   print("[BENCH-TOOl] Done")
