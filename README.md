@@ -11,14 +11,14 @@ A performance measurement tool for Bitcoin Core block validation across differen
 
 ## Tools
 
-- `bt-bench.py`: Executes benchmarks across different commits
-- `bt-plot.py`: Generates performance visualization graphs
+- `bt-bench.py`: Executes benchmarks across different commits, running multiple iterations
+- `bt-plot.py`: Generates performance visualization graphs using average times
 
 ## Basic Usage
 
 Run benchmark in source code directory:
 ```bash
-./bt-bench.py <datadir> <stopheight> <commits...> [--args <bitcoin-core-args>]
+./bt-bench.py <datadir> <stopheight> <commits...> [--runs N] [--args <bitcoin-core-args>]
 ```
 
 Generate plot:
@@ -57,5 +57,14 @@ Benchmark script:
 - `datadir`: Path to Bitcoin data directory
 - `stopheight`: Block height to stop at
 - `commits`: Git refs to benchmark
-- `--i`: 
-- `--args`: Additional Bitcoin Core arguments`
+- `--runs`: Number of iterations per benchmark (default: 3)
+- `--i`: Parameter values for sweep benchmarking
+- `--args`: Additional Bitcoin Core arguments
+
+## Output Format
+
+The benchmark tool produces CSV files with the following columns:
+- `max_ns`: Maximum time in nanoseconds across all runs
+- `min_ns`: Minimum time in nanoseconds across all runs
+- `avg_ns`: Average time in nanoseconds across all runs
+- `height`: Block height

@@ -11,7 +11,7 @@ def load_and_plot(files, outfile):
       df = pd.read_csv(file)
       
       # Convert nanoseconds to milliseconds
-      df['time_ms'] = df['time_ns'] / 1_000_000
+      df['time_ms'] = df['avg_ns'] / 1_000_000
       
       # Plot this dataset
       label = file.replace('.csv', '')  # Remove extension for legend

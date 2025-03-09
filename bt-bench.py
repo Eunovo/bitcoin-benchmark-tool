@@ -44,6 +44,7 @@ if __name__ == "__main__":
   parser.add_argument("targets", nargs="*")
   parser.add_argument("--i", nargs="+", default=[None])
   parser.add_argument("--args")
+  parser.add_argument("--runs", type=int, default=3, help="Number of benchmark iterations")
 
   args = None
   bitcoin_args = []
@@ -59,6 +60,7 @@ if __name__ == "__main__":
   targets = args.targets
   numcores = len(os.sched_getaffinity(0))
   stopheight = int(args.stopheight)
+  num_runs = args.runs
 
   values = args.i
 
@@ -77,24 +79,42 @@ if __name__ == "__main__":
       parsed_bitcoin_args = [parse_arg(arg, value) for arg in bitcoin_args]
 
       cmd = "build/src/bitcoind -datadir={0} -daemon=0 -networkactive=0 -prune=0 -reindex -stopatheight={1} {2}".format(datadir, stopheight, ' '.join(parsed_bitcoin_args))
-      print("[BENCH-TOOL] Running: "+cmd)
-      data = [(0,0) for i in range(stopheight)] # Reserve space for data
-      with os.popen(cmd) as output:
-        start_time = time.time_ns()
-        count = 0
-        while count < (stopheight * 10): # Use limit to remove the possibility of inifinite loop
-          (new_tip, shutdown) = parse_line(output.readline())
-          duration_ns = time.time_ns() - start_time
-          count += 1
-          if shutdown:
-            break
-          if new_tip > 0:
-            data[new_tip - 1] = (duration_ns, new_tip)
+      
+      # Initialize data storage for multiple runs
+      all_runs = [[(0,0) for i in range(stopheight)] for _ in range(num_runs)]
+      
+      # Run multiple iterations
+      for run in range(num_runs):
+        print(f"[BENCH-TOOL] Running iteration {run+1}/{num_runs}: {cmd}")
+        with os.popen(cmd) as output:
+          start_time = time.time_ns()
+          count = 0
+          while count < (stopheight * 10): # Use limit to remove the possibility of inifinite loop
+            (new_tip, shutdown) = parse_line(output.readline())
+            duration_ns = time.time_ns() - start_time
+            count += 1
+            if shutdown:
+              break
+            if new_tip > 0:
+              all_runs[run][new_tip - 1] = (duration_ns, new_tip)
 
+      # Calculate statistics
+      stats = []
+      for height in range(stopheight):
+        times = [run[height][0] for run in all_runs if run[height][1] > 0]
+        if times:
+          stats.append({
+            'height': height + 1,
+            'min_ns': min(times),
+            'max_ns': max(times),
+            'avg_ns': sum(times) // len(times)
+          })
+
+      # Write combined statistics
       with open(target_outfile, 'xt') as file:
         print("[BENCH-TOOL] Writing data to "+target_outfile)
-        file.write("time_ns,height\n")
-        for line in data:
-          file.write("{0},{1}\n".format(line[0], line[1]))
+        file.write("max_ns,min_ns,avg_ns,height\n")
+        for stat in stats:
+          file.write("{0},{1},{2},{3}\n".format(stat['max_ns'], stat['min_ns'], stat['avg_ns'], stat['height']))
   
-  print("[BENCH-TOOl] Done")
+  print("[BENCH-TOOL] Done")
